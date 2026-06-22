@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revisy - 復習ToDo管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tab-active {
+            background-color: #e0e7ff;
+            color: #4338ca;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+
+    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2 rounded-xl">
+                    <i data-lucide="book-open-check" class="w-7 h-7 text-amber-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Revisy</h1>
+                    <p class="text-xs text-indigo-100">時間割プリセット＆復習ToDo管理</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 bg-indigo-950/50 px-3 py-1.5 rounded-full border border-indigo-400/30 text-xs w-full sm:w-auto justify-between sm:justify-start">
+                <span class="font-semibold text-slate-200 flex items-center gap-1.5 shrink-0">
+                    <i data-lucide="calendar" class="w-4 h-4 text-amber-300"></i>
+                    基準日設定:
+                </span>
+                <input type="date" id="current-date-input" class="bg-transparent border-none text-white focus:ring-0 cursor-pointer font-bold outline-none text-xs text-right sm:text-left">
+            </div>
+        </div>
+    </header>
+
+    <div id="toast" class="fixed bottom-6 right-6 left-6 sm:left-auto z-50 hidden flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl transition-all border transform bg-emerald-50 border-emerald-200 text-emerald-800">
+        <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500 shrink-0"></i>
+        <span id="toast-message" class="text-xs font-semibold"></span>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <div class="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 mb-6 max-w-md mx-auto">
+            <button id="tab-dashboard" class="tab-active flex-1 py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="check-circle" class="w-4 h-4"></i><span>復習タスク</span>
+            </button>
+            <button id="tab-input" class="flex-1 py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-50">
+                <i data-lucide="plus" class="w-4 h-4"></i><span>進捗入力</span>
+            </button>
+            <button id="tab-timetable" class="flex-1 py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-50">
+                <i data-lucide="settings" class="w-4 h-4"></i><span>時間割設定</span>
+            </button>
+        </div>
+
+        <div id="view-dashboard" class="space-y-6">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div class="bg-rose-50 border border-rose-100 rounded-2xl p-4">
+                    <p class="text-[10px] text-rose-600 font-bold tracking-wider">期限超過</p>
+                    <p id="count-overdue" class="text-lg sm:text-xl font-black text-rose-700 mt-1">0 <span class="text-xs font-normal">件</span></p>
+                </div>
+                <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                    <p class="text-[10px] text-amber-600 font-bold tracking-wider">今日が期限</p>
+                    <p id="count-today" class="text-lg sm:text-xl font-black text-amber-700 mt-1">0 <span class="text-xs font-normal">件</span></p>
+                </div>
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                    <p class="text-[10px] text-blue-600 font-bold tracking-wider">明日以降</p>
+                    <p id="count-upcoming" class="text-lg sm:text-xl font-black text-blue-700 mt-1">0 <span class="text-xs font-normal">件</span></p>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                    <p class="text-[10px] text-emerald-600 font-bold tracking-wider">完了済み</p>
+                    <p id="count-completed" class="text-lg sm:text-xl font-black text-emerald-700 mt-1">0 <span class="text-xs font-normal">件</span></p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-base font-black text-slate-800">学習復習ToDoリスト</h2>
+                </div>
+                <div class="p-4 sm:p-6 space-y-6">
+                    <div id="section-overdue" class="hidden">
+                        <h3 class="text-xs font-bold text-rose-600 mb-3 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-rose-500"></span>期限超過のタスク</h3>
+                        <div id="list-overdue" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-500"></span>今日が期限の復習</h3>
+                        <div id="list-today" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-500"></span>今後の復習予定</h3>
+                        <div id="list-upcoming" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>完了した復習</h3>
+                        <div id="list-completed" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-input" class="hidden max-w-3xl mx-auto space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-black text-slate-800">授業の進捗を入力</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-600 whitespace-nowrap">授業日:</span>
+                        <input type="date" id="input-date-picker" class="border border-slate-200 rounded-lg text-xs font-bold p-1.5 focus:border-indigo-500 outline-none bg-white">
+                    </div>
+                </div>
+                <div class="mx-4 sm:mx-6 mt-4 p-3.5 bg-indigo-50 rounded-xl border border-indigo-100/60 text-xs text-indigo-900 flex justify-between items-center">
+                    <div><span class="font-bold">現在適用中の時間割: </span><span id="input-active-preset-name" class="font-black text-indigo-700 bg-white px-2 py-0.5 rounded border">通常時間割</span></div>
+                    <div id="input-weekday-label" class="font-bold text-indigo-800 bg-indigo-100 px-2 py-1 rounded-md">月曜日</div>
+                </div>
+                <form id="progress-form" class="p-4 sm:p-6 space-y-4">
+                    <div id="progress-fields-container" class="space-y-4"></div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="plus" class="w-5 h-5"></i>登録して復習タスクを一括追加
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="view-timetable" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-base font-black text-slate-800">時間割プリセット管理</h2>
+                    </div>
+                    <button id="btn-open-preset-form" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer">
+                        <i data-lucide="plus" class="w-4 h-4"></i>新規プリセット登録
+                    </button>
+                </div>
+
+                <div id="preset-form-container" class="hidden bg-slate-50 p-4 sm:p-5 rounded-2xl border border-indigo-100 mb-6 space-y-4 text-xs">
+                    <input type="hidden" id="preset-id-form">
+                    <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                        <h3 id="preset-form-title" class="text-xs font-black text-indigo-800">新規プリセット作成</h3>
+                        <button type="button" id="btn-close-preset-form" class="text-slate-400 hover:text-slate-600 cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-slate-500 font-bold mb-1">プリセット名</label>
+                            <input type="text" id="preset-name-form" class="w-full bg-white border border-slate-200 rounded-lg p-2.5 font-bold" placeholder="例: 短縮4時間">
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 font-bold mb-1">プリセット種別</label>
+                            <select id="preset-type-form" class="w-full bg-white border border-slate-200 rounded-lg p-2.5 font-bold">
+                                <option value="temp">臨時（指定期間のみ適用）</option>
+                                <option value="default">通常（標準で適用）</option>
+                            </select>
+                        </div>
+                        <div id="preset-start-div">
+                            <label class="block text-slate-500 font-bold mb-1">適用開始日</label>
+                            <input type="date" id="preset-start-form" class="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold">
+                        </div>
+                        <div id="preset-end-div">
+                            <label class="block text-slate-500 font-bold mb-1">適用終了日</label>
+                            <input type="date" id="preset-end-form" class="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold">
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                        <p class="font-bold text-slate-600">各曜日・時限の科目を設定 (1〜6限)</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-5 gap-4" id="preset-weeks-grid"></div>
+                    </div>
+                    <div class="flex justify-end gap-2 text-xs">
+                        <button type="button" id="btn-cancel-preset" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2.5 rounded-lg cursor-pointer">キャンセル</button>
+                        <button type="button" id="btn-save-preset" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-lg shadow-sm cursor-pointer">時間割プリセットを保存</button>
+                    </div>
+                </div>
+                <div id="presets-list-container" class="grid grid-cols-1 xl:grid-cols-2 gap-6"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="task-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden">
+            <div class="bg-indigo-700 px-5 py-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-sm">復習タスクの編集</h3>
+                <button type="button" id="btn-close-task-modal" class="text-white/80 hover:text-white cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="task-modal-form" class="p-5 space-y-4 text-xs">
+                <input type="hidden" id="modal-task-id">
+                <div>
+                    <label class="block text-slate-500 font-bold mb-1">対象教科</label>
+                    <select id="modal-task-subject" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-bold"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-500 font-bold mb-1">授業日</label>
+                        <input type="date" id="modal-task-taught" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold">
+                    </div>
+                    <div>
+                        <label class="block text-slate-500 font-bold mb-1">復習期限</label>
+                        <input type="date" id="modal-task-deadline" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-bold text-indigo-700">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-500 font-bold mb-1">教科書の範囲</label>
+                    <input type="text" id="modal-task-textbook" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold">
+                </div>
+                <div>
+                    <label class="block text-slate-500 font-bold mb-1">ワークの範囲</label>
+                    <input type="text" id="modal-task-workbook" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold">
+                </div>
+                <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                    <button type="button" id="btn-cancel-task-modal" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold px-4 py-2.5 rounded-lg cursor-pointer">キャンセル</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-lg cursor-pointer">変更を保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // --- Firebase 設定 ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDRoeq0cZPyiLR35A_r6oRgZo0TvBab4zs",
+            authDomain: "revisy-74274.firebaseapp.com",
+            projectId: "revisy-74274",
+            storageBucket: "revisy-74274.firebasestorage.app",
+            messagingSenderId: "424800682908",
+            appId: "1:424800682908:web:2810aa1dabdbbbaa967e59"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const USER_DOC_REF = doc(db, "users", "default-user");
+
+        // --- マスタデータ & 初期データ ---
+        const MASTER_SUBJECTS = ["英コミ", "論表", "数Ⅱ", "数B", "物理", "公共", "家庭", "LHR", "保健", "体育", "未共"];
+        const WEEKDAYS = ["月", "火", "水", "木", "金"];
+
+        function getTodayString() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        const DEFAULT_PRESETS = [
+            {
+                id: "preset-regular",
+                name: "通常時間割",
+                isDefault: true,
+                startDate: "",
+                endDate: "",
+                schedule: {
+                    "月": ["英コミ", "数Ⅱ", "数B", "物理", "公共", "体育"],
+                    "火": ["論表", "数Ⅱ", "未共", "保健", "物理", "公共"],
+                    "水": ["英コミ", "論表", "数B", "家庭", "物理", "LHR"],
+                    "木": ["公共", "英コミ", "数Ⅱ", "物理", "数B", "未共"],
+                    "金": ["数Ⅱ", "数B", "物理", "公共", "家庭", "体育"]
+                }
+            }
+        ];
+
+        // --- 状態管理 ---
+        let state = {
+            currentDate: getTodayString(),
+            presets: [],
+            tasks: []
+        };
+
+        // --- 関数群 ---
+        async function saveToFirebase() {
+            try {
+                await setDoc(USER_DOC_REF, {
+                    presets: state.presets,
+                    tasks: state.tasks,
+                    currentDate: state.currentDate
+                });
+            } catch (error) {
+                console.error("Firebaseへの保存に失敗しました:", error);
+            }
+        }
+
+        function syncFromFirebase() {
+            onSnapshot(USER_DOC_REF, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    state.presets = data.presets || DEFAULT_PRESETS;
+                    state.tasks = data.tasks || [];
+                    state.currentDate = data.currentDate || getTodayString();
+                    
+                    const dateInput = document.getElementById('current-date-input');
+                    const formDateInput = document.getElementById('input-date-picker');
+                    if (dateInput) dateInput.value = state.currentDate;
+                    if (formDateInput) formDateInput.value = state.currentDate;
+                    
+                    renderDashboard();
+                    updateProgressInputFields();
+                    renderTimetablePresets();
+                } else {
+                    state.presets = DEFAULT_PRESETS;
+                    state.currentDate = getTodayString();
+                    saveToFirebase();
+                }
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            if (toast && toastMessage) {
+                toastMessage.innerText = msg;
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3000);
+            }
+        }
+
+        function switchTab(tabName) {
+            ['dashboard', 'input', 'timetable'].forEach(t => {
+                document.getElementById(`view-${t}`)?.classList.add('hidden');
+                const tabBtn = document.getElementById(`tab-${t}`);
+                if (tabBtn) tabBtn.className = "flex-1 py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-50";
+            });
+            document.getElementById(`view-${tabName}`)?.classList.remove('hidden');
+            const activeTabBtn = document.getElementById(`tab-${tabName}`);
+            if (activeTabBtn) activeTabBtn.className = "tab-active flex-1 py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5";
+
+            if (tabName === 'dashboard') renderDashboard();
+            if (tabName === 'input') updateProgressInputFields();
+            if (tabName === 'timetable') renderTimetablePresets();
+            
+            lucide.createIcons();
+        }
+
+        function getAppliedPreset(dateStr) {
+            const tempPreset = state.presets.find(p => !p.isDefault && p.startDate && p.endDate && dateStr >= p.startDate && dateStr <= p.endDate);
+            return tempPreset || state.presets.find(p => p.isDefault) || state.presets[0];
+        }
+
+        function getJapaneseWeekday(dateStr) {
+            const days = ["日", "月", "火", "水", "木", "金", "土"];
+            return days[new Date(dateStr).getDay()];
+        }
+
+        function updateProgressInputFields() {
+            const formDatePicker = document.getElementById('input-date-picker');
+            if (!formDatePicker) return;
+
+            const targetDate = formDatePicker.value;
+            const weekday = getJapaneseWeekday(targetDate);
+            const activePreset = getAppliedPreset(targetDate);
+
+            document.getElementById('input-active-preset-name').innerText = activePreset.name;
+            document.getElementById('input-weekday-label').innerText = weekday + "曜日 (1〜6限)";
+            
+            const container = document.getElementById('progress-fields-container');
+            if (!container) return;
+            container.innerHTML = "";
+
+            const daySchedule = activePreset.schedule[weekday] || [];
+            if (weekday === "土" || weekday === "日" || daySchedule.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 font-bold border border-dashed rounded-xl">授業時間割がありません。</div>`;
+                return;
+            }
+
+            daySchedule.forEach((subject, idx) => {
+                if (!subject) return;
+                const d = new Date(targetDate);
+                d.setDate(d.getDate() + 3);
+                const defaultDeadline = d.toISOString().split('T')[0];
+
+                const fieldHtml = `
+                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm text-xs">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-100 mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold flex items-center justify-center">${idx + 1}</span>
+                                <span class="font-black text-slate-800 text-sm">${subject}</span>
+                                <input type="checkbox" id="enabled_${idx}" checked class="rounded text-indigo-600 w-4 h-4 ml-2">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-slate-400 font-bold mb-1">教科書の範囲</label>
+                                <input type="text" id="textbook_${idx}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-semibold">
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 font-bold mb-1">ワークの範囲</label>
+                                <input type="text" id="workbook_${idx}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-semibold">
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 font-bold mb-1">復習期日</label>
+                                <input type="date" id="deadline_${idx}" value="${defaultDeadline}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 font-bold text-indigo-700">
+                            </div>
+                        </div>
+                    </div>`;
+                container.insertAdjacentHTML('beforeend', fieldHtml);
+            });
+        }
+
+        function renderDashboard() {
+            const curDate = state.currentDate;
+            const groups = { overdue: [], today: [], upcoming: [], completed: [] };
+            state.tasks.forEach(task => {
+                if (task.completed) groups.completed.push(task);
+                else if (task.deadline < curDate) groups.overdue.push(task);
+                else if (task.deadline === curDate) groups.today.push(task);
+                else groups.upcoming.push(task);
+            });
+
+            document.getElementById('count-overdue').innerHTML = `${groups.overdue.length} 件`;
+            document.getElementById('count-today').innerHTML = `${groups.today.length} 件`;
+            document.getElementById('count-upcoming').innerHTML = `${groups.upcoming.length} 件`;
+            document.getElementById('count-completed').innerHTML = `${groups.completed.length} 件`;
+
+            const sectionOverdue = document.getElementById('section-overdue');
+            if (groups.overdue.length > 0) sectionOverdue?.classList.remove('hidden');
+            else sectionOverdue?.classList.add('hidden');
+
+            renderTaskCards('list-overdue', groups.overdue, 'rose');
+            renderTaskCards('list-today', groups.today, 'amber');
+            renderTaskCards('list-upcoming', groups.upcoming, 'indigo');
+            renderTaskCards('list-completed', groups.completed, 'emerald');
+            lucide.createIcons();
+        }
+
+        function renderTaskCards(targetId, taskList, themeColor) {
+            const container = document.getElementById(targetId);
+            if (!container) return;
+            container.innerHTML = taskList.length === 0 ? `<p class="text-xs text-slate-400 py-2">タスクはありません</p>` : "";
+
+            taskList.forEach(task => {
+                let borderStyles = "border-slate-200 bg-white";
+                if (themeColor === 'rose') borderStyles = "border-rose-200 bg-rose-50/40";
+                if (themeColor === 'amber') borderStyles = "border-amber-200 bg-amber-50/40";
+                if (themeColor === 'emerald') borderStyles = "border-emerald-100 bg-emerald-50/20 opacity-60 line-through";
+
+                const html = `
+                <div class="p-4 rounded-xl border-2 flex justify-between items-center gap-3 ${borderStyles}">
+                    <div class="flex items-start gap-3 text-xs w-full">
+                        <input type="checkbox" ${task.completed ? "checked" : ""} data-id="${task.id}" class="task-checkbox mt-0.5 w-5 h-5 rounded cursor-pointer">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-black text-sm text-slate-900">${task.subject}</span>
+                                <span class="text-[9px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">授業: ${task.taughtDate}</span>
+                            </div>
+                            <div class="text-slate-600 mt-1">
+                                <p><span class="font-bold text-slate-400">教科書:</span> ${task.textbookRange || 'なし'}</p>
+                                <p><span class="font-bold text-slate-400">ワーク:</span> ${task.workbookRange || 'なし'}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex shrink-0">
+                        <button data-id="${task.id}" class="task-edit-btn text-slate-400 hover:text-indigo-600 p-1.5 cursor-pointer"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                        <button data-id="${task.id}" class="task-delete-btn text-slate-400 hover:text-rose-500 p-1.5 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+
+            container.querySelectorAll('.task-checkbox').forEach(el => el.addEventListener('change', (e) => toggleTaskCompletion(e.target.getAttribute('data-id'))));
+            container.querySelectorAll('.task-edit-btn').forEach(el => el.addEventListener('click', (e) => openEditTaskModal(e.currentTarget.getAttribute('data-id'))));
+            container.querySelectorAll('.task-delete-btn').forEach(el => el.addEventListener('click', (e) => deleteTask(e.currentTarget.getAttribute('data-id'))));
+        }
+
+        function toggleTaskCompletion(id) {
+            state.tasks = state.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+            saveToFirebase();
+        }
+
+        function deleteTask(id) {
+            state.tasks = state.tasks.filter(t => t.id !== id);
+            saveToFirebase();
+        }
+
+        function openEditTaskModal(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (!task) return;
+            document.getElementById('modal-task-id').value = task.id;
+            document.getElementById('modal-task-textbook').value = task.textbookRange;
+            document.getElementById('modal-task-workbook').value = task.workbookRange;
+            document.getElementById('modal-task-taught').value = task.taughtDate;
+            document.getElementById('modal-task-deadline').value = task.deadline;
+            document.getElementById('modal-task-subject').innerHTML = MASTER_SUBJECTS.map(s => `<option value="${s}" ${s === task.subject ? "selected" : ""}>${s}</option>`).join('');
+            document.getElementById('task-modal')?.classList.remove('hidden');
+        }
+
+        function renderTimetablePresets() {
+            const container = document.getElementById('presets-list-container');
+            if (!container) return;
+            container.innerHTML = "";
+
+            state.presets.forEach(preset => {
+                let cardStyles = preset.isDefault ? "border-indigo-200 bg-indigo-50/10" : "border-slate-200 bg-white";
+                let badgeHtml = preset.isDefault ? `<span class="bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">標準適用</span>` : `<span class="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full">期間設定</span>`;
+
+                let scheduleHeaderRow = WEEKDAYS.map(w => `<div class="bg-slate-100 p-1 text-center font-bold text-slate-700 rounded">${w}</div>`).join('');
+                let scheduleGridHtml = "";
+
+                for (let r = 0; r < 6; r++) {
+                    scheduleGridHtml += WEEKDAYS.map(w => {
+                        const sub = (preset.schedule[w] && preset.schedule[w][r]) ? preset.schedule[w][r] : "-";
+                        return `<div class="p-1 text-center truncate border-b border-r border-slate-100 bg-slate-50/30">${sub}</div>`;
+                    }).join('');
+                }
+
+                const html = `
+                <div class="rounded-xl border-2 p-4 flex flex-col gap-3 ${cardStyles}">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <div class="flex items-center gap-2"><h4 class="font-black text-sm">${preset.name}</h4>${badgeHtml}</div>
+                        <div class="flex">
+                            <button data-id="${preset.id}" class="preset-edit-btn text-slate-400 hover:text-indigo-600 p-1 cursor-pointer"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-5 gap-1 text-[10px]">${scheduleHeaderRow}${scheduleGridHtml}</div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+            container.querySelectorAll('.preset-edit-btn').forEach(el => el.addEventListener('click', (e) => openPresetForm(e.currentTarget.getAttribute('data-id'))));
+        }
+
+        function openPresetForm(id) {
+            const nameInput = document.getElementById('preset-name-form');
+            const typeSelect = document.getElementById('preset-type-form');
+            const startInput = document.getElementById('preset-start-form');
+            const endInput = document.getElementById('preset-end-form');
+            const idInput = document.getElementById('preset-id-form');
+
+            if (id) {
+                const preset = state.presets.find(p => p.id === id);
+                idInput.value = preset.id;
+                nameInput.value = preset.name;
+                typeSelect.value = preset.isDefault ? "default" : "temp";
+                startInput.value = preset.startDate || "";
+                endInput.value = preset.endDate || "";
+            }
+            renderPresetWeeksGrid(id);
+            document.getElementById('preset-form-container')?.classList.remove('hidden');
+        }
+
+        function renderPresetWeeksGrid(id) {
+            const grid = document.getElementById('preset-weeks-grid');
+            if (!grid) return;
+            grid.innerHTML = "";
+            const preset = id ? state.presets.find(p => p.id === id) : null;
+
+            WEEKDAYS.forEach(w => {
+                let selectHtml = "";
+                for (let r = 0; r < 6; r++) {
+                    const currentVal = (preset && preset.schedule[w] && preset.schedule[w][r]) ? preset.schedule[w][r] : "";
+                    let options = MASTER_SUBJECTS.map(s => `<option value="${s}" ${s === currentVal ? "selected" : ""}>${s}</option>`).join('');
+                    selectHtml += `<div class="mt-1"><select id="cell_${w}_${r}" class="w-full bg-slate-50 border p-1 text-[11px]">${options}</select></div>`;
+                }
+                grid.insertAdjacentHTML('beforeend', `<div class="p-2 border bg-white rounded-lg"><p class="font-bold text-center">${w}</p>${selectHtml}</div>`);
+            });
+        }
+
+        // --- イベント登録 ---
+        document.getElementById('tab-dashboard').addEventListener('click', () => switchTab('dashboard'));
+        document.getElementById('tab-input').addEventListener('click', () => switchTab('input'));
+        document.getElementById('tab-timetable').addEventListener('click', () => switchTab('timetable'));
+
+        document.getElementById('current-date-input').addEventListener('change', (e) => {
+            state.currentDate = e.target.value;
+            saveToFirebase();
+        });
+        document.getElementById('input-date-picker').addEventListener('change', updateProgressInputFields);
+
+        // 🌟 追加部分: 授業進捗フォーム送信
+        document.getElementById('progress-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const targetDate = document.getElementById('input-date-picker').value;
+            const weekday = getJapaneseWeekday(targetDate);
+            const activePreset = getAppliedPreset(targetDate);
+            const daySchedule = activePreset.schedule[weekday] || [];
+
+            let addedCount = 0;
+            daySchedule.forEach((subject, idx) => {
+                const checkbox = document.getElementById(`enabled_${idx}`);
+                if (checkbox && checkbox.checked) {
+                    state.tasks.push({
+                        id: "task-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+                        subject: subject,
+                        taughtDate: targetDate,
+                        textbookRange: document.getElementById(`textbook_${idx}`).value || "なし",
+                        workbookRange: document.getElementById(`workbook_${idx}`).value || "なし",
+                        deadline: document.getElementById(`deadline_${idx}`).value,
+                        completed: false
+                    });
+                    addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                saveToFirebase();
+                switchTab('dashboard');
+                showToast(`${addedCount}件の復習タスクを追加しました！`);
+            }
+        });
+
+        document.getElementById('btn-open-preset-form').addEventListener('click', () => openPresetForm(null));
+        document.getElementById('btn-close-preset-form').addEventListener('click', () => document.getElementById('preset-form-container').classList.add('hidden'));
+        document.getElementById('btn-cancel-preset').addEventListener('click', () => document.getElementById('preset-form-container').classList.add('hidden'));
+        document.getElementById('btn-close-task-modal').addEventListener('click', () => document.getElementById('task-modal').classList.add('hidden'));
+        document.getElementById('btn-cancel-task-modal').addEventListener('click', () => document.getElementById('task-modal').classList.add('hidden'));
+
+        document.getElementById('task-modal-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('modal-task-id').value;
+            state.tasks = state.tasks.map(t => t.id === id ? {
+                ...t,
+                subject: document.getElementById('modal-task-subject').value,
+                taughtDate: document.getElementById('modal-task-taught').value,
+                deadline: document.getElementById('modal-task-deadline').value,
+                textbookRange: document.getElementById('modal-task-textbook').value,
+                workbookRange: document.getElementById('modal-task-workbook').value,
+            } : t);
+            saveToFirebase();
+            document.getElementById('task-modal').classList.add('hidden');
+        });
+
+        // 起動処理
+        syncFromFirebase();
+    </script>
+</body>
+</html>
